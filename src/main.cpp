@@ -1,9 +1,12 @@
 #include <SPI.h>
 #include <MPU6000.h>
-
 #include <Wire.h>
 #include <I2Cdev.h>
 #include <HMC5883L.h>
+//#include <MS5611.h>
+#include <APM_PPM.h>
+
+#define PC_BAUD 115200
 
 //LED output pins
 const int ledBlue = 25;
@@ -11,9 +14,14 @@ const int ledYellow = 26;
 const int ledRed = 27;
 
 //SPI Bus SlaveSelect pins
-//const int imuSelect = 53;
-//const int pressureSelect = 40;
 MPU6000 imu;
+float accelVec[3];
+float gyroVec[3];
+
+#define X 0
+#define Y 1
+#define Z 2
+
 /*
 _______________GPS (uBlox NEO-6M-0-001) Pinout_______________
 TX1 = PD3
@@ -21,6 +29,7 @@ RX1 = PD2
 I believe this is Serial1 on the ATMEGA2560
 */
 #define GPS_BAUD 9600
+
 /*
 _______________DataFlash(AT45DB161-MU) Pinout_______________
 PJ1 = MOSI_DF = 14
@@ -37,21 +46,16 @@ SDA = PD1 = 20
 This seems like the defualt bus
 */
 HMC5883L mag;
-int16_t mx, my, mz;
+int16_t magVec[3];
+
 /*
 _______________Servo PPM Encoder Pinout______________________
-Definitely a lot more going on in the circuit than I orignally thought.
-ATMEGA32U4  ATMEGA2560
-PPM_PD1      PA2
-PPM_PD0      PA1
-PPM_PC2 => Throws switch for whole system
-This pin is on the ATMEGA32U4
-This will throw the connections for pins
-RX0-1                     ____PPM_TX (Normally Open)
-ATMEGA2560_PE0 (RX?)_____|____3DR_RX (Normally Closed)
-TX0-O                     ____PPM_RX (Normally Open)
-ATMEGA2560_PE1 (TX?)_____|____3DR_TX (Normally Closed)
+ATMEGA32U4    ATMEGA2560
+PPM_OUT       PPM_IN = PL_1(IPC5)
 */
+APM_PPM rxin;
+const int ppmChannelCount = 8;
+// Variable definition for Input Capture interrupt
 
 
 /*
@@ -83,46 +87,27 @@ IO9 = PK0 = ADC8
 const int io_count = 9;
 const int io_pins[9] = {A0, A1, A2, A3, A4, A5, A6, A7, A8};
 
-uint8_t spi_read(uint8_t);
-
 void setup () {
 
-  Serial.begin(9600);
+  Serial.begin(PC_BAUD);
   Serial1.begin(GPS_BAUD);
 
   pinMode(ledBlue, OUTPUT);
   pinMode(ledYellow, OUTPUT);
   pinMode(ledRed, OUTPUT);
 
+
+
   digitalWrite(ledBlue, HIGH);
   digitalWrite(ledYellow, HIGH);
   digitalWrite(ledRed, HIGH);
-  /*
-  pinMode(imuSelect, OUTPUT);
-  pinMode(pressureSelect, OUTPUT);
-
-  digitalWrite(imuSelect, HIGH);
-  digitalWrite(pressureSelect, HIGH);
-
-  SPI.begin();
-  SPI.setBitOrder(MSBFIRST);
-  SPI.setClockDivider(SPI_CLOCK_DIV16);
-  SPI.setDataMode(SPI_MODE3);
-  delay(100);
-  */
 
   mag.initialize();
   imu.initialize();
-  /*
-  imu.writeReg(MPUREG_PWR_MGMT_1, BIT_H_RESET);
-  delay(100);
-  imu.writeReg(MPUREG_PWR_MGMT_1, MPU_CLK_SEL_PLLGYROZ);
-  */
-  Serial.println(imu.readReg(MPUREG_CONFIG));
-  imu.writeReg(MPUREG_CONFIG, BITS_DLPF_CFG_42HZ);
-  Serial.println(imu.readReg(MPUREG_CONFIG));
 
-  delay(1);
+  rxin.initialize();
+
+
 
 }
 
@@ -132,22 +117,13 @@ void loop () {
   while(Serial1.available()){
     Serial.write(Serial1.read());
   }
-
-  //Read magnetometer
-  mag.getHeading(&mx, &my, &mz);
-  Serial.print("Raw Mag Values: ");
-  Serial.print(mx); Serial.print("  "); Serial.print(my); Serial.print("  "); Serial.println(mz);
   */
-  imu.readImu();
-  Serial.println(imu.gyroX);
+  /*
+  mag.readScaled();
+  imu.readScaled();
+  Serial.println(mag.data[0],10);
   delay(1);
-
-}
-
-uint8_t spi_read(uint8_t read_command) {
-  digitalWrite(imuSelect, LOW);
-  SPI.transfer(read_command);
-  byte miso_data = SPI.transfer(0);
-  digitalWrite(imuSelect, HIGH);
-  return miso_data;
+  */
+  //Serial.println(TCNT5);
+  delay(1);
 }

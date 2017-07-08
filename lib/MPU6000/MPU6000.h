@@ -91,32 +91,35 @@ https://github.com/jpoirier/AHRS/blob/master/MPU6000.ino
 #define BIT_RAW_RDY_EN              (0x01)
 #define BIT_I2C_IF_DIS              (0x10)
 
-//APM Chip Select Pins:
-const int imuSelect = 53;
-const int pressureSelect = 40;
-
 class MPU6000{
   public:
+    //Class Constructor
     MPU6000();
+    //Class Functions
     void initialize();
-    void writeReg(uint8_t reg, uint8_t data);
-    uint8_t readReg(uint8_t reg);
-    void readImu();
+    bool testConnection();
+    void readScaled();
+    void readImu(int16_t accel[3], int16_t gyro[3]);
+    float getGyroScale();
+    float getAccelScale();
 
-    //Sensor variables
-    int accelX;
-    int accelY;
-    int accelZ;
-    int MPU6000_ACCEL_OFFSET[3];
+
+    //Class Variables
+    float gyroScale;
+    float accelScale;
+    float gyro[3];
+    float accel[3];
+    int accelOffsets[3];
+    int gyroOffsets[3];
     unsigned int mpu_temp;
-    int gyroX;
-    int gyroY;
-    int gyroZ;
-
-
-
 
   private:
+    void writeReg(uint8_t reg, uint8_t data);
+    uint8_t readReg(uint8_t reg);
+
+    //APM Chip Select Pins:
+    const int imuSelect = 53;
+    const int pressureSelect = 40;
 
 };
 

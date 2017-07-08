@@ -75,9 +75,33 @@ void MPU6000::initialize(){
    writeReg(MPUREG_FIFO_EN, (uint8_t) 0x00); //Disable FIFO
    writeReg(MPUREG_INT_ENABLE, (uint8_t)0x01); //Generate interrupt whenever data is ready
 
+   gyroScale = getGyroScale();
+   accelScale = getAccelScale();
+
 }
 
-void MPU6000::readImu(){
+bool MPU6000::testConnection(){
+  uint8_t id;
+  id = readReg(MPUREG_WHOAMI);
+
+  if(id == 0x68){
+    return true;
+  }else{
+    return false;
+  }
+}
+
+void MPU6000::readScaled(){
+  int16_t a[3], g[3];
+  readImu(a, g);
+  for(int j = 0; j<3; j++){
+    accel[j] = a[j]*accelScale;
+    gyro[j] = g[j]*gyroScale;
+  }
+  return;
+}
+
+void MPU6000::readImu(int16_t accel[3], int16_t gyro[3]){
   uint8_t byte_H, byte_L, dump;
 
   //Start a stream read of the sensor outputs:
@@ -86,20 +110,21 @@ void MPU6000::readImu(){
   digitalWrite(imuSelect, LOW);
 
   dump = SPI.transfer(addr);
+
   // Read AccelX
   byte_H = SPI.transfer(0);
   byte_L = SPI.transfer(0);
-  accelX = ((int)byte_H << 8) | byte_L;
+  accel[0] = ((int)byte_H << 8) | byte_L;
 
   // Read AccelY
   byte_H = SPI.transfer(0);
   byte_L = SPI.transfer(0);
-  accelY = ((int)byte_H << 8) | byte_L;
+  accel[1] = ((int)byte_H << 8) | byte_L;
 
   // Read AccelZ
   byte_H = SPI.transfer(0);
   byte_L = SPI.transfer(0);
-  accelZ = ((int)byte_H << 8)| byte_L;
+  accel[2] = ((int)byte_H << 8)| byte_L;
 
   // Read Temp
   byte_H = SPI.transfer(0);
@@ -109,19 +134,69 @@ void MPU6000::readImu(){
   // Read GyroX
   byte_H = SPI.transfer(0);
   byte_L = SPI.transfer(0);
-  gyroX = ((int)byte_H << 8)| byte_L;
+  gyro[0] = ((int)byte_H << 8)| byte_L;
 
   // Read GyroY
   byte_H = SPI.transfer(0);
   byte_L = SPI.transfer(0);
-  gyroY = ((int)byte_H << 8) | byte_L;
+  gyro[1] = ((int)byte_H << 8) | byte_L;
 
   // Read GyroZ
   byte_H = SPI.transfer(0);
   byte_L = SPI.transfer(0);
-  gyroZ = ((int)byte_H <<8 ) | byte_L;
+  gyro[2] = ((int)byte_H <<8 ) | byte_L;
 
   digitalWrite(imuSelect, HIGH);
+}
+
+float MPU6000::getAccelScale(){
+  const int bitNum = 32768;//(2^16)/2 Internal 16bit ADC
+  uint8_t configByte;
+  configByte = readReg(MPUREG_ACCEL_CONFIG);
+  //Eliminate all bits except scale bits
+  configByte &= 0x18;
+  configByte = configByte >> 3;
+  Serial.println(configByte);
+  if (configByte == 0){
+    return(abs((float)2.0/bitNum));
+  }
+  else if (configByte == 1){
+    return(abs((float)4.0/bitNum));
+  }
+  else if (configByte == 2){
+    return(abs((float)8.0/bitNum));
+  }
+  else if (configByte == 3){
+    return(abs((float)16.0/bitNum));
+  }
+  else{
+    return ((float)-1.0);
+  }
+}
+
+float MPU6000::getGyroScale(){
+  const int bitNum = 32768;//(2^16)/2 Internal 16bit ADC
+  uint8_t configByte;
+  configByte = readReg(MPUREG_GYRO_CONFIG);
+  //Eliminate all bits except scale bits
+  configByte &= 0x18;
+  configByte = configByte >> 3;
+  Serial.println(configByte);
+  if (configByte == 0){
+    return(abs((float)250.0/bitNum));
+  }
+  else if (configByte == 1){
+    return(abs((float)500.0/bitNum));
+  }
+  else if (configByte == 2){
+    return(abs((float)1000.0/bitNum));
+  }
+  else if (configByte == 3){
+    return(abs((float)2000.0/bitNum));
+  }
+  else{
+    return ((float)-1.0);
+  }
 }
 
 uint8_t MPU6000::readReg(uint8_t reg){

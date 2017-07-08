@@ -70,6 +70,9 @@ void HMC5883L::initialize() {
 
     // write MODE register
     setMode(HMC5883L_MODE_SINGLE);
+
+    //Get guass conversion factor
+    scale = getScale();
 }
 
 /** Verify the I2C connection.
@@ -194,6 +197,41 @@ uint8_t HMC5883L::getGain() {
     I2Cdev::readBits(devAddr, HMC5883L_RA_CONFIG_B, HMC5883L_CRB_GAIN_BIT, HMC5883L_CRB_GAIN_LENGTH, buffer);
     return buffer[0];
 }
+
+float HMC5883L::getScale(){
+  uint8_t gain;
+  gain = getGain();
+
+  if(gain == 0){
+    return(abs((float)1/1370));
+  }
+  else if(gain == 1){
+    return(abs((float)1/1090));
+  }
+  else if(gain == 2){
+    return(abs((float)1/820));
+  }
+  else if(gain == 3){
+    return(abs((float)1/660));
+  }
+  else if(gain == 4){
+    return(abs((float)1/440));
+  }
+  else if(gain == 5){
+    return(abs((float)1/390));
+  }
+  else if(gain == 6){
+    return(abs((float)1/330));
+  }
+  else if(gain == 7){
+    return(abs((float)1/230));
+  }
+  else{
+    return (-1.0);
+  }
+}
+
+
 /** Set magnetic field gain value.
  * @param gain New magnetic field gain value
  * @see getGain()
@@ -255,6 +293,15 @@ void HMC5883L::setMode(uint8_t newMode) {
 }
 
 // DATA* registers
+void HMC5883L::readScaled(){
+  int16_t raw[3];
+  getHeading(raw);
+
+  for( int j = 0; j<3; j++){
+    data[j] = (float) raw[j] * scale;
+  }
+}
+
 
 /** Get 3-axis heading measurements.
  * In the event the ADC reading overflows or underflows for the given channel,
@@ -267,12 +314,12 @@ void HMC5883L::setMode(uint8_t newMode) {
  * @param z 16-bit signed integer container for Z-axis heading
  * @see HMC5883L_RA_DATAX_H
  */
-void HMC5883L::getHeading(int16_t *x, int16_t *y, int16_t *z) {
+void HMC5883L::getHeading(int16_t raw[3]) {
     I2Cdev::readBytes(devAddr, HMC5883L_RA_DATAX_H, 6, buffer);
     if (mode == HMC5883L_MODE_SINGLE) I2Cdev::writeByte(devAddr, HMC5883L_RA_MODE, HMC5883L_MODE_SINGLE << (HMC5883L_MODEREG_BIT - HMC5883L_MODEREG_LENGTH + 1));
-    *x = (((int16_t)buffer[0]) << 8) | buffer[1];
-    *y = (((int16_t)buffer[4]) << 8) | buffer[5];
-    *z = (((int16_t)buffer[2]) << 8) | buffer[3];
+    raw[0] = (((int16_t)buffer[0]) << 8) | buffer[1];
+    raw[1] = (((int16_t)buffer[4]) << 8) | buffer[5];
+    raw[2] = (((int16_t)buffer[2]) << 8) | buffer[3];
 }
 /** Get X-axis heading measurement.
  * @return 16-bit signed integer with X-axis heading
